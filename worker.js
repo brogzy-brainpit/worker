@@ -7,16 +7,7 @@ const amqp = {
   amqp: process.env.AMQP_URL, // e.g., from CloudAMQP
 };
 
-const config = {
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
-  auth: {
-    user: "dangabarin2020@gmail.com",
-    pass: "yabccxpsciuoynqs",
-  },
-};
 
 // Just call the consumer ONCE
-rabbitconsumer(amqp, null, config, null);
-console.log('called now')
+rabbitconsumer(amqp, null, null);
+console.log('worker up and running, listening to emails !!!')

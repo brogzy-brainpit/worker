@@ -1,132 +1,136 @@
 const amqplib = require('amqplib/callback_api');
-const nodemailer= require('nodemailer')
+const nodemailer = require('nodemailer');
 
-const rabbitconsumer=(amqp,res,config,list)=>{
-  let transport =nodemailer.createTransport(config)
+// Step 1: Define your pool of warmed inboxes
+const mailboxes = [
+  {
+    user: "dangabarin2020@gmail.com",
+    pass: "yabccxpsciuoynqs",
+  },
+  {
+    user: "memetsamples@gmail.com",
+    pass: "bhihurizjmhmyfsl",
+  },
+  {
+    user: "memetoumar@gmail.com",
+    pass: "dfbbiugrxpcivjkh",
+  },
+  // Add more inboxes here
+];
 
-     amqplib.connect(amqp.amqp, (err, connection) => {
-    
+let currentMailboxIndex = 0;
+
+// Step 2: Rotate transport per message
+const getNextTransport = () => {
+  const { user, pass } = mailboxes[currentMailboxIndex];
+  const usedIndex = currentMailboxIndex;
+  currentMailboxIndex = (currentMailboxIndex + 1) % mailboxes.length;
+
+  console.log(`🔄 Using mailbox: ${mailboxes[usedIndex].user}`);
+
+  return {
+    transport: nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: { user, pass },
+    }),
+    sender: user,
+  };
+};
+
+
+// Main consumer
+const rabbitconsumer = (amqp, res, list) => {
+  amqplib.connect(amqp.amqp, (err, connection) => {
+    if (err) {
+      console.error("Connection error:", err.stack);
+      return process.exit(1);
+    }
+
+    connection.createChannel((err, channel) => {
+      if (err) {
+        console.error("Channel error:", err.stack);
+        return process.exit(1);
+      }
+
+      channel.assertQueue(amqp.queue, { durable: true }, err => {
+        if (err) {
+          console.error("Queue error:", err.stack);
+          return process.exit(1);
+        }
+
+        channel.prefetch(1);
+        const sentTo = [];
+        const processed = new Set();
+
+        channel.consume(amqp.queue, data => {
+          if (!data) return;
+
+          const message = JSON.parse(data.content.toString());
+
+          if (processed.has(message.id)) {
+            console.log("Skipping duplicate:", message.id);
+            return channel.ack(data);
+          }
+          processed.add(message.id);
+
+          const { transport, sender } = getNextTransport();
+
+          const mail_config = {
+            from: sender,
+            to: message.to,
+            subject: message.subject,
+            replyTo: sender,
+            text: message.text,
+            headers: {
+              'X-Priority': '3',
+              'X-Mailer': 'Nodemailer',
+              'List-Unsubscribe': `<mailto:${sender}>`,
+            },
+          };
+
+          transport.sendMail(mail_config, (err, info) => {
             if (err) {
-                console.error(err.stack);
-                return process.exit(1);
+              console.error("SendMail Error:", err.stack);
+              if (!message.to || message.to.trim() === '') {
+                return channel.ack(data);
+              }
+              return channel.nack(data);
             }
-            // Create channel
-            connection.createChannel((err, channel) => {
-                if (err) {
-                    console.error(err.stack);
-                    return process.exit(1);
-                }
-          
-                // Ensure queue for messages
-                channel.assertQueue(amqp.queue, {
-                    // Ensure that the queue is not deleted when server restarts
-                    durable: true
-                }, err => {
-                    if (err) {
-                        console.error(err.stack);
-                        return process.exit(1);
-                    }
-          
-                    // Only request 1 unacked message from queue
-                    // This value indicates how many messages we want to process in parallel
-                    channel.prefetch(1);
-          
-                    // Set up callback to handle messages received from the queue
-                    let sentTo= [];
-                  const processed = new Set();
-                    channel.consume(amqp.queue, data => {
-                        const message = JSON.parse(data.content.toString());
-                        if (data==null) {
-                            return;
-                        }
 
-                if (processed.has(message.id)) {
-                    console.log("Skipping duplicate:", message.id);
-                    return channel.ack(data); // prevent infinite loop
-                }
-                processed.add(message.id);
-                // Optional: clear old IDs after N mins
-                        // Decode message contents
-          
-                        // attach message specific authentication options
-                        // this is needed if you want to send different messages from
-                        // different user accounts
-                        // message.auth = {
-                        //     user: 'testuser',
-                        //     pass: 'testpass'
-                        // };
-                        // let list =["bok <dangabarin2020@gmail.com>","bulama<dangabarin2020@gmail.com>","bok <dangabarin2020@gmail.com>","chexa <dangabarin2020@gmail.com>","malo <dangabarin2020@gmail.com>","<muhammad <dangabarin2020@gmail.com>","musa <dangabarin2021@gmail.com>","garba <dangabarin2021@gmail.com>","hassan <dangabarin2021@gmail.com>","abdul <dangabarin2021@gmail.com>"]
-                    
-                        const mail_config={
-                          from: message.from, // sender address
-                          to: message.to, // list of receivers
-                          subject: message.subject, // Subject line
-                          replyTo:message.replyTo,
-                          //   html:message.html ,// html body,    
-                           text: message.text, 
-                            headers: {
-                            'X-Priority': '3', // 1 = High, 3 = Normal
-                            'X-Mailer': 'Nodemailer', // Info about the sender app
-                            'List-Unsubscribe': '<mailto:dangabarin2020@gmail.com>', // Optional, but good for mass mail
-                            }
-                        }
-                    
-                       // Send the message using the previously set up Nodemailer transport
-                       transport.sendMail(mail_config, (err, info) => {
-                        if (err) {
-                            console.error(err.stack);
-                            if(mail_config.to =='' || message.to ==' ' ){
-                             channel.ack(data);
-                            }
-                            // put the failed message item back to queue
-                             channel.nack(data);
-                        }
-                        sentTo.push(message.to)
-                        console.log("processed emails",sentTo);
-                        channel.ack(data);
-                        // console.log('Delivered message %s', info);
-                        //    channel.close(() => connection.close());
-                        //    channel.deleteQueue(amqp.queue,{ifEmpty:true})
-                    })
+            sentTo.push(message.to);
+            console.log("Sent to:", message.to);
+            channel.ack(data);
 
-                    channel.checkQueue(amqp.queue,(err,data)=>{
-                        if(err){
-                            console.log(`error checking queue >>> ${err}`);
-                            return process.exit(0);
-                        }else{
-                        // console.log(`remaining queues left :${data.messageCount}`)
+            // Check if queue is empty
+            channel.checkQueue(amqp.queue, (err, qData) => {
+              if (err) {
+                console.log("Queue check error:", err);
+                return;
+              }
 
-                            // when queue is totally absorbed
-                            if(data.messageCount==0){
-                                console.log(`queues absorbed totally !!!`)
-                           const mail_conf = {
-                                from: '"Processed Messages" <dangabarin2020@gmail.com>', // ✅ valid sender
-                                to: "dangabarin2020@gmail.com",
-                                subject: "Emails Processed",
-                                replyTo: "dangabarin2020@gmail.com",
-                                text: `Hello Memet,\n\nthe total of ${sentTo.length} email contacts have received our messages:\n\n${sentTo.join('\n')}`
-                            };
-                                // send this mail to the sender of the bulk email about the inboxes that received the emails
-                                  return transport.sendMail(mail_conf, (err, info) => {
-                                  if (err) {console.error(err.stack);}
-                                  console.log('message absorbed successfully')
-                                  sentTo=[]
-                                   })
-                            }
-                        } 
-                       })
-                     
-                    
+              if (qData.messageCount === 0 && sentTo.length > 0) {
+                const summaryMail = {
+                  from: sender,
+                  to: sender,
+                  subject: "Emails Processed",
+                  replyTo: sender,
+                  text: `✅ ${sentTo.length} emails were sent:\n\n${sentTo.join('\n')}`,
+                };
 
-                        
-                        // return process.exit(0);
-      
-                  
-                    });
+                transport.sendMail(summaryMail, (err, info) => {
+                  if (err) console.error("Summary Mail Error:", err.stack);
+                  else console.log("All messages processed and summary sent.");
+                  sentTo.length = 0; // Reset
                 });
+              }
             });
           });
-        
-    
-}
-module.exports= {rabbitconsumer}
+        });
+      });
+    });
+  });
+};
+
+module.exports = { rabbitconsumer };
