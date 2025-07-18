@@ -1,6 +1,6 @@
 const amqplib = require('amqplib/callback_api');
 const nodemailer = require('nodemailer');
-const striptags = require('striptags');
+const { convert } = require('html-to-text');
 
 
 
@@ -79,26 +79,31 @@ const rabbitconsumer = (amqp, res, list) => {
           processed.add(message.id);
 
           const { transport, sender } = getNextTransport();
-
+     const text= convert(message.html || '', {
+  wordwrap: false, // Don't insert hard line breaks
+  selectors: [
+    { selector: 'img', format: 'skip' }, // skip invisible tracking images
+    { selector: 'style', format: 'skip' }, // this removes CSS
+  ]
+});
          const mail_config = {
             from: sender,
             to: message.to,
             subject: message.subject,
             replyTo: sender,
             // Then in mail_config:
-           text: striptags(message.html),
-            headers: {
+           text,
+           headers: {
               'X-Priority': '3',
               'X-Mailer': 'Nodemailer',
               'List-Unsubscribe': `<mailto:${sender}>`,
             },
           };
-console.log(striptags(message.html))
+          console.log(text)
 // Only add the HTML version if it's not empty/null/undefined
 // if (message.html && message.html.trim() !== "") {
 //   mail_config.html = message.html;
 // }
-
 
           transport.sendMail(mail_config, (err, info) => {
             if (err) {
