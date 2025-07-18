@@ -1,5 +1,8 @@
 const amqplib = require('amqplib/callback_api');
 const nodemailer = require('nodemailer');
+const striptags = require('striptags');
+
+
 
 // Step 1: Define your pool of warmed inboxes
 const mailboxes = [
@@ -77,18 +80,25 @@ const rabbitconsumer = (amqp, res, list) => {
 
           const { transport, sender } = getNextTransport();
 
-          const mail_config = {
+         const mail_config = {
             from: sender,
             to: message.to,
             subject: message.subject,
             replyTo: sender,
-            text: message.text,
+            // Then in mail_config:
+           text: striptags(message.html),
             headers: {
               'X-Priority': '3',
               'X-Mailer': 'Nodemailer',
               'List-Unsubscribe': `<mailto:${sender}>`,
             },
           };
+console.log(striptags(message.html))
+// Only add the HTML version if it's not empty/null/undefined
+// if (message.html && message.html.trim() !== "") {
+//   mail_config.html = message.html;
+// }
+
 
           transport.sendMail(mail_config, (err, info) => {
             if (err) {
