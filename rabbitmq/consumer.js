@@ -2,9 +2,7 @@ const amqplib = require('amqplib/callback_api');
 const nodemailer = require('nodemailer');
 const { convert } = require('html-to-text');
 
-
-
-// Step 1: Define your pool of warmed inboxes
+// 🔐 Your pool of warmed inboxes
 const mailboxes = [
   {
     user: "dangabarin2020@gmail.com",
@@ -18,19 +16,15 @@ const mailboxes = [
     user: "memetoumar@gmail.com",
     pass: "dfbbiugrxpcivjkh",
   },
-  // Add more inboxes here
 ];
 
 let currentMailboxIndex = 0;
 
-// Step 2: Rotate transport per message
 const getNextTransport = () => {
   const { user, pass } = mailboxes[currentMailboxIndex];
-  const usedIndex = currentMailboxIndex;
   currentMailboxIndex = (currentMailboxIndex + 1) % mailboxes.length;
 
-  console.log(`🔄 Using mailbox: ${mailboxes[usedIndex].user}`);
-
+  console.log(`🔄 Using mailbox: ${user}`);
   return {
     transport: nodemailer.createTransport({
       host: "smtp.gmail.com",
@@ -42,105 +36,116 @@ const getNextTransport = () => {
   };
 };
 
-
-// Main consumer
+// 📨 Main Consumer
 const rabbitconsumer = (amqp, res, list) => {
   amqplib.connect(amqp.amqp, (err, connection) => {
     if (err) {
-      console.error("Connection error:", err.stack);
+      console.error("❌ AMQP Connection Error:", err.stack);
       return process.exit(1);
     }
 
     connection.createChannel((err, channel) => {
       if (err) {
-        console.error("Channel error:", err.stack);
+        console.error("❌ Channel Error:", err.stack);
         return process.exit(1);
       }
 
       channel.assertQueue(amqp.queue, { durable: true }, err => {
         if (err) {
-          console.error("Queue error:", err.stack);
+          console.error("❌ Queue Error:", err.stack);
           return process.exit(1);
         }
 
         channel.prefetch(1);
         const sentTo = [];
-        const processed = new Set();
+        let summaryTimer = null;
+
+        const scheduleSummary = (sender, transport) => {
+          clearTimeout(summaryTimer);
+          summaryTimer = setTimeout(() => {
+            if (sentTo.length > 0) {
+              const summaryMail = {
+                from: sender,
+                to: "dangabarin2020@gmail.com",
+                subject: "✅ Email Sent Summary",
+                replyTo: sender,
+                text: `✅ ${sentTo.length} emails were sent:\n\n${sentTo.join('\n')}`,
+              };
+              transport.sendMail(summaryMail, (err) => {
+                if (err) {
+                  console.error("❌ Summary Email Error:", err.stack);
+                } else {
+                  console.log("📬 Summary email sent.");
+                }
+                sentTo.length = 0;
+              });
+            }
+          }, 5000); // wait 5s of inactivity
+        };
+
+
+
+
+
+
 
         channel.consume(amqp.queue, data => {
           if (!data) return;
 
-          const message = JSON.parse(data.content.toString());
-
-          if (processed.has(message.id)) {
-            console.log("Skipping duplicate:", message.id);
+          let message;
+          try {
+            message = JSON.parse(data.content.toString());
+          } catch (e) {
+            console.error("❌ Invalid message format.");
             return channel.ack(data);
           }
-          processed.add(message.id);
+
+          if (!message.to || message.to.trim() === "") {
+            console.warn("⚠️ Skipping empty 'to' address.");
+            return channel.ack(data);
+          }
 
           const { transport, sender } = getNextTransport();
-     const text= convert(message.html || '', {
-  wordwrap: false, // Don't insert hard line breaks
-  selectors: [
-    { selector: 'img', format: 'skip' }, // skip invisible tracking images
-    { selector: 'style', format: 'skip' }, // this removes CSS
-  ]
-});
-         const mail_config = {
+
+          // Fallback plain text extraction
+          const text = convert(message.html || message.text || '', {
+            wordwrap: false,
+            selectors: [
+              { selector: 'img', format: 'skip' },
+              { selector: 'style', format: 'skip' }
+            ]
+          });
+
+          const mail_config = {
             from: sender,
             to: message.to,
-            subject: message.subject,
+            subject: message.subject || "No subject",
             replyTo: sender,
-            // Then in mail_config:
-           text,
-           headers: {
+            text,
+            headers: {
               'X-Priority': '3',
               'X-Mailer': 'Nodemailer',
               'List-Unsubscribe': `<mailto:${sender}>`,
-            },
+            }
           };
-          console.log(text)
-// Only add the HTML version if it's not empty/null/undefined
-// if (message.html && message.html.trim() !== "") {
-//   mail_config.html = message.html;
-// }
+
+          // Optional: send HTML only if exists
+          if (message.html && message.html.trim()) {
+            mail_config.html = message.html;
+          }
+
+          console.log(`📤 Sending email to ${message.to}...`);
 
           transport.sendMail(mail_config, (err, info) => {
             if (err) {
-              console.error("SendMail Error:", err.stack);
-              if (!message.to || message.to.trim() === '') {
-                return channel.ack(data);
-              }
-              return channel.nack(data);
+              console.error(`❌ Send Error to ${message.to}:`, err.message);
+              return channel.ack(data); // ✅ still ack to avoid retry loops
             }
 
+            console.log(`✅ Sent to: ${message.to}`);
             sentTo.push(message.to);
-            console.log("Sent to:", message.to);
             channel.ack(data);
-
-            // Check if queue is empty
-            channel.checkQueue(amqp.queue, (err, qData) => {
-              if (err) {
-                console.log("Queue check error:", err);
-                return;
-              }
-
-              if (qData.messageCount === 0 && sentTo.length > 0) {
-                const summaryMail = {
-                  from: sender,
-                  to: sender,
-                  subject: "Emails Processed",
-                  replyTo: sender,
-                  text: `✅ ${sentTo.length} emails were sent:\n\n${sentTo.join('\n')}`,
-                };
-
-                transport.sendMail(summaryMail, (err, info) => {
-                  if (err) console.error("Summary Mail Error:", err.stack);
-                  else console.log("All messages processed and summary sent.");
-                  sentTo.length = 0; // Reset
-                });
-              }
-            });
+            scheduleSummary(sender, transport); // ⏱️ restart summary timer
           });
         });
       });
