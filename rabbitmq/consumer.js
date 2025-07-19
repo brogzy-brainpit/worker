@@ -59,7 +59,7 @@ const rabbitconsumer = (amqp, res, list) => {
         channel.prefetch(1);
         const sentTo = [];
         let summaryTimer = null;
-
+        // this is gonna send a brief about the emails queued and sent to my email account
         const scheduleSummary = (sender, transport) => {
           clearTimeout(summaryTimer);
           summaryTimer = setTimeout(() => {
@@ -117,7 +117,7 @@ const rabbitconsumer = (amqp, res, list) => {
           });
 
           const mail_config = {
-            from: sender,
+            from: `${message.from.trim() !==''?message.from:'memet oumar'} <${sender}>`,
             to: message.to,
             subject: message.subject || "No subject",
             replyTo: sender,
@@ -125,12 +125,12 @@ const rabbitconsumer = (amqp, res, list) => {
             headers: {
               'X-Priority': '3',
               'X-Mailer': 'Nodemailer',
-              'List-Unsubscribe': `<mailto:${sender}>`,
+              // 'List-Unsubscribe': `<mailto:${sender}>`,
             }
           };
 
           // Optional: send HTML only if exists
-          if (message.html && message.html.trim()) {
+          if (message.html && message.html.trim() && message.sendHTML =='true') {
             mail_config.html = message.html;
           }
 
