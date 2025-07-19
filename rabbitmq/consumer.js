@@ -116,8 +116,10 @@ const rabbitconsumer = (amqp, res, list) => {
             ]
           });
 
-          const mail_config = {
-            from: `${message.from.trim() !==''?message.from:'memet oumar'} <${sender}>`,
+         const fromName = message.from && message.from.trim() ? message.from.trim() : 'memet oumar';
+          
+         const mail_config = {
+            from: `${fromName} <${sender}>`,
             to: message.to,
             subject: message.subject || "No subject",
             replyTo: sender,
