@@ -1,0 +1,75 @@
+// sentLoggerWorker.js
+require("dotenv").config();
+const amqp = require('amqplib');
+const mongoose = require('mongoose');
+const User = require('../model/userAuth'); // Adjust if needed
+
+// 🔗 MongoDB Connection
+const MONGO_URI = process.env.MONGODB_URI;
+mongoose.connect(MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+});
+
+mongoose.connection.on('connected', () => {
+  console.log('✅ MongoDB connected (Logger Worker)');
+});
+mongoose.connection.on('error', (err) => {
+  console.error('❌ MongoDB connection error:', err);
+});
+
+// 📥 RabbitMQ Consumer Setup
+const RABBITMQ_URL = process.env.AMQP_URL;
+const QUEUE_NAME = 'sentLogs';
+
+async function startLoggerWorker() {
+  console.log('🛠️ Logger Worker starting...');
+
+  try {
+    const conn = await amqp.connect(RABBITMQ_URL);
+    const channel = await conn.createChannel();
+    await channel.assertQueue(QUEUE_NAME, { durable: true });
+
+    console.log(`📥 Waiting for messages in '${QUEUE_NAME}'`);
+
+    channel.consume(
+      QUEUE_NAME,
+      async (msg) => {
+        if (msg !== null) {
+          try {
+            const content = msg.content.toString();
+            const data = JSON.parse(content);
+            const { userId, email } = data;
+console.log("📩 Received message in Logger Worker:", { userId, email });
+
+            if (!userId || !email) {
+              console.warn('⚠️ Missing userId or email in message:', data);
+              return channel.ack(msg);
+            }
+
+            const result = await User.updateOne(
+              { _id: userId, "contacts.email": email },
+              { $inc: { "contacts.$.totalEmailSent": 1 } }
+            );
+
+            if (result.modifiedCount === 0) {
+              console.warn(`⚠️ No contact updated for userId: ${userId}, email: ${email}`);
+            } else {
+              console.log(`✅ Logged email sent for ${email} (user: ${userId})`);
+            }
+
+            channel.ack(msg);
+          } catch (err) {
+            console.error('❌ Failed to process message:', err.message);
+            channel.nack(msg, false, false);
+          }
+        }
+      },
+      { noAck: false }
+    );
+  } catch (err) {
+    console.error('❌ Logger Worker error:', err.message);
+  }
+}
+
+module.exports = { startLoggerWorker };

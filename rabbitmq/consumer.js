@@ -4,18 +4,9 @@ const { convert } = require('html-to-text');
 
 // 🔐 Your pool of warmed inboxes
 const mailboxes = [
-  {
-    user: "dangabarin2020@gmail.com",
-    pass: "yabccxpsciuoynqs",
-  },
-  {
-    user: "memetsamples@gmail.com",
-    pass: "bhihurizjmhmyfsl",
-  },
-  {
-    user: "memetoumar@gmail.com",
-    pass: "dfbbiugrxpcivjkh",
-  },
+  { user: "dangabarin2020@gmail.com", pass: "yabccxpsciuoynqs" },
+  { user: "memetsamples@gmail.com", pass: "bhihurizjmhmyfsl" },
+  { user: "memetoumar@gmail.com", pass: "dfbbiugrxpcivjkh" },
 ];
 
 let currentMailboxIndex = 0;
@@ -50,105 +41,112 @@ const rabbitconsumer = (amqp, res, list) => {
         return process.exit(1);
       }
 
-      channel.assertQueue(amqp.queue, { durable: true }, err => {
-        if (err) {
-          console.error("❌ Queue Error:", err.stack);
-          return process.exit(1);
+      // 🔔 Set up the main email queue and the sentLogs queue
+      channel.assertQueue(amqp.queue, { durable: true });
+      channel.assertQueue("sentLogs", { durable: true }); // 👈 ADDED
+
+      channel.prefetch(1);
+      const sentTo = [];
+      let summaryTimer = null;
+
+      const scheduleSummary = (sender, transport) => {
+        clearTimeout(summaryTimer);
+        summaryTimer = setTimeout(() => {
+          if (sentTo.length > 0) {
+            const summaryMail = {
+              from: sender,
+              to: "dangabarin2020@gmail.com",
+              subject: "✅ Email Sent Summary",
+              replyTo: sender,
+              text: `✅ ${sentTo.length} emails were sent:\n\n${sentTo.join('\n')}`,
+            };
+            transport.sendMail(summaryMail, (err) => {
+              if (err) console.error("❌ Summary Email Error:", err.stack);
+              else console.log("📬 Summary email sent.");
+              sentTo.length = 0;
+            });
+          }
+        }, 5000);
+      };
+
+      channel.consume(amqp.queue, data => {
+        if (!data) return;
+
+        let message;
+        try {
+          message = JSON.parse(data.content.toString());
+        } catch (e) {
+          console.error("❌ Invalid message format.");
+          return channel.ack(data);
         }
 
-        channel.prefetch(1);
-        const sentTo = [];
-        let summaryTimer = null;
-        // this is gonna send a brief about the emails queued and sent to my email account
-        const scheduleSummary = (sender, transport) => {
-          clearTimeout(summaryTimer);
-          summaryTimer = setTimeout(() => {
-            if (sentTo.length > 0) {
-              const summaryMail = {
-                from: sender,
-                to: "dangabarin2020@gmail.com",
-                subject: "✅ Email Sent Summary",
-                replyTo: sender,
-                text: `✅ ${sentTo.length} emails were sent:\n\n${sentTo.join('\n')}`,
-              };
-              transport.sendMail(summaryMail, (err) => {
-                if (err) {
-                  console.error("❌ Summary Email Error:", err.stack);
-                } else {
-                  console.log("📬 Summary email sent.");
-                }
-                sentTo.length = 0;
-              });
-            }
-          }, 5000); // wait 5s of inactivity
+        if (!message.to || message.to.trim() === "") {
+          console.warn("⚠️ Skipping empty 'to' address.");
+          return channel.ack(data);
+        }
+
+        const { transport, sender } = getNextTransport();
+
+        const text = convert(message.html || message.text || '', {
+          wordwrap: false,
+          selectors: [
+            { selector: 'img', format: 'skip' },
+            { selector: 'style', format: 'skip' }
+          ]
+        });
+
+        const fromName = message.from && message.from.trim() ? message.from.trim() : 'memet oumar';
+
+        const mail_config = {
+          from: `${fromName} <${sender}>`,
+          to: message.to,
+          subject: message.subject || "No subject",
+          replyTo: sender,
+          text,
+          headers: {
+            'X-Priority': '3',
+            'X-Mailer': 'Nodemailer',
+          }
         };
 
+        if (message.html && message.html.trim() && message.sendHTML === 'true') {
+          mail_config.html = message.html;
+        }
 
+        console.log(`📤 Sending email to ${message.to}...`);
 
-
-
-
-
-        channel.consume(amqp.queue, data => {
-          if (!data) return;
-
-          let message;
-          try {
-            message = JSON.parse(data.content.toString());
-          } catch (e) {
-            console.error("❌ Invalid message format.");
+        transport.sendMail(mail_config, (err, info) => {
+          if (err) {
+            console.error(`❌ Send Error to ${message.to}:`, err.message);
             return channel.ack(data);
           }
+        
+          console.log(`✅ Senthhhhhhhhhhhv vvvvvv to: ${message.to}`);
+          console.log(` Sent to: ${message.userId}`);
+          const log = {
+              userId: message.userId,
+              email: message.to
+            };
+            console.log("📤 Publishing to sentLogs");
 
-          if (!message.to || message.to.trim() === "") {
-            console.warn("⚠️ Skipping empty 'to' address.");
-            return channel.ack(data);
+          sentTo.push(message.to);
+
+          // ✅ PUBLISH to sentLogs queue
+          if (message.userId) {
+            const log = {
+              userId: message.userId,
+              email: message.to
+            };
+            console.log("📤 Publishing to sentLogs", log);
+
+            channel.sendToQueue("sentLogs", Buffer.from(JSON.stringify(log)), {
+              persistent: true
+            });
+            
           }
 
-          const { transport, sender } = getNextTransport();
-
-          // Fallback plain text extraction
-          const text = convert(message.html || message.text || '', {
-            wordwrap: false,
-            selectors: [
-              { selector: 'img', format: 'skip' },
-              { selector: 'style', format: 'skip' }
-            ]
-          });
-
-         const fromName = message.from && message.from.trim() ? message.from.trim() : 'memet oumar';
-          
-         const mail_config = {
-            from: `${fromName} <${sender}>`,
-            to: message.to,
-            subject: message.subject || "No subject",
-            replyTo: sender,
-            text,
-            headers: {
-              'X-Priority': '3',
-              'X-Mailer': 'Nodemailer',
-              // 'List-Unsubscribe': `<mailto:${sender}>`,
-            }
-          };
-
-          // Optional: send HTML only if exists
-          if (message.html && message.html.trim() && message.sendHTML =='true') {
-            mail_config.html = message.html;
-          }
-
-          console.log(`📤 Sending email to ${message.to}...`);
-
-          transport.sendMail(mail_config, (err, info) => {
-            if (err) {
-              console.error(`❌ Send Error to ${message.to}:`, err.message);
-              return channel.ack(data); // ✅ still ack to avoid retry loops
-            }
-
-            console.log(`✅ Sent to: ${message.to}`);
-            sentTo.push(message.to);
-            channel.ack(data);
-            scheduleSummary(sender, transport); // ⏱️ restart summary timer
-          });
+          channel.ack(data);
+          scheduleSummary(sender, transport);
         });
       });
     });
