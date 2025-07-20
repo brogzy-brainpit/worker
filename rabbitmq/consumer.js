@@ -121,7 +121,7 @@ const rabbitconsumer = (amqp, res, list) => {
             return channel.ack(data);
           }
         
-          console.log(`✅ Senthhhhhhhhhhhv vvvvvv to: ${message.to}`);
+          // console.log(`✅ Senthhhhhhhhhhhv vvvvvv to: ${message.to}`);
           console.log(` Sent to: ${message.userId}`);
           const log = {
               userId: message.userId,
