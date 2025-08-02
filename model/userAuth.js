@@ -20,8 +20,42 @@ const contactSchema = new mongoose.Schema({
     emailClicks:{type:Number,default:0},
     openRate:{type:Number,default:0},
     clickRate:{type:Number,default:0},
-    // createdAt: { type: Date, default:"2024-07-18T00:00:00.000Z" }, // Timestamp for each subscriber
     createdAt: { type: Date, default: Date.now }, // Timestamp for each subscriber
+    // createdAt: { type: Date, default:"2024-07-18T00:00:00.000Z" }, // Timestamp for each subscriber
+});
+const warmupInboxSchema = new mongoose.Schema({
+    inbox:{
+        type:String,
+        unique:true,
+        required:[true,"please provide a mailbox"]
+       },
+      firstName:{type:String, default:'Mailing_Agent'},
+  appPassword: { type: String, required: true },
+  isListener: { type: Boolean,default:true},
+  provider: { type: String, default: "gmail" },
+  dailyLimit: { type: Number, default: 4},       // Starting daily send limit
+  dailyIncrease: { type: Number, default: 4 },   // How much to increase per day (configurable)
+  totalEmailSent: { type: Number, default: 0 },
+  lastSentDate: { type: Date, default: null },
+  nextSendDate: { type: Date, default: Date.now },
+  sentToday: { type: Number, default: 0 },
+  status: { type: String, default: "active" },
+  createdAt: { type: Date, default: Date.now },
+ sendWindow: {
+  type: Object,
+  default: { start: "09:00", end: "18:00" } // Business hours by default
+},
+totalInboxHit:{ type: Number, default: 0 },
+totalReply:{ type: Number, default: 0 },
+totalSpamHit:{ type: Number, default: 0 },
+replyRate: {
+    type: Number,
+    default: 0.45, // 45% chance of replying to warmup emails
+    min: 0,
+    max: 1
+  },
+
+
 });
 const authSchema= new mongoose.Schema({
     userName:String,
@@ -65,6 +99,7 @@ const authSchema= new mongoose.Schema({
 },
 createdAt: { type: Date, default: Date.now },
 contacts:[contactSchema],
+ warmupInboxes: [warmupInboxSchema],  // Array of warmup inbox subdocuments
 templates:{
     type:Array,
     default:[]

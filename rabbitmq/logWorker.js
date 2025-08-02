@@ -3,21 +3,6 @@ require("dotenv").config();
 const amqp = require("amqplib");
 const mongoose = require("mongoose");
 const User = require("../model/userAuth"); // adjust path as needed
-
-// 🔗 MongoDB Connection
-const MONGO_URI = 'mongodb+srv://vercel-admin-user:ItMMVVSTyxnXI5Vt@cluster0.lo7pg4o.mongodb.net/mailapp?retryWrites=true&w=majority';
-mongoose.connect(MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
-
-mongoose.connection.on("connected", () => {
-  console.log("✅ MongoDB connected (Logger Worker)");
-});
-mongoose.connection.on("error", (err) => {
-  console.error("❌ MongoDB connection error:", err);
-});
-
 // 📥 RabbitMQ Setup
 const RABBITMQ_URL = process.env.AMQP_URL;
 const QUEUE_NAME = "sentLogs";
