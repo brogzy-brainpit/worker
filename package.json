@@ -34,6 +34,7 @@
     "imap-simple": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "jsx-node": "^0.3.1",
+    "luxon": "^3.7.1",
     "mailparse": "^2.2.2",
     "mailparser": "^3.7.4",
     "mjml": "^4.14.1",

@@ -2,6 +2,7 @@ require("dotenv").config();
 const amqp = require("amqplib");
 const mongoose = require("mongoose");
 const User = require("../model/userAuth");
+const { DateTime } = require("luxon");
 
 const AMQP_URL = process.env.AMQP_URL;
 const QUEUE_NAME = "warmupQueue";
@@ -96,8 +97,8 @@ async function scheduler() {
 
   async function runCycle() {
     try {
-      const now = new Date();
-      const todayKey = now.toISOString().slice(0, 10);
+      const now = DateTime.now().setZone("Africa/Lagos").toJSDate();
+      const todayKey = new Date(now).toISOString().slice(0, 10);
 
       const users = await User.find({ "warmupInboxes.status": "active" });
 
@@ -106,7 +107,7 @@ async function scheduler() {
 
         for (const inbox of u.warmupInboxes) {
           if (inbox.status !== "active") continue;
-          await sleep(6000 + Math.random() * 12000); // 6–12 sec delay
+          await sleep(6000 + Math.random() * 12000);
 
           if (inbox.isListener) {
             console.log(`⏩ Skipping ${inbox.inbox} because it is a listener-only inbox`);
@@ -135,7 +136,6 @@ async function scheduler() {
 
           const toSend = inbox.dailyLimit - inbox.sentToday;
           if (toSend <= 0) {
-            // nothing left — schedule next shoot for tomorrow start
             const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
             inbox.nextSendDate = new Date(tomorrow.setHours(0, 0, 0, 0));
             dirty = true;
@@ -144,7 +144,6 @@ async function scheduler() {
 
           console.log(`⏩ Scheduling ${toSend} for ${inbox.inbox}`);
 
-          // lock out further schedules until tomorrow
           const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
           inbox.nextSendDate = new Date(tomorrow.setHours(0, 0, 0, 0));
           inbox.sentToday += toSend;
@@ -174,7 +173,6 @@ async function scheduler() {
             if (!destObj) continue;
 
             const { to, firstName } = destObj;
-
             const text = getRandomWarmupContent(firstName || "Warmup");
 
             const job = {
@@ -202,13 +200,11 @@ async function scheduler() {
     } catch (err) {
       console.error("❌ Scheduler error:", err);
     } finally {
-      // Schedule next run after 40 minutes
       setTimeout(runCycle, 40 * 60 * 1000);
       isRunning = false;
     }
   }
 
-  // Start the first run immediately
   runCycle();
 }
 

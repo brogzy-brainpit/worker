@@ -2,6 +2,7 @@
 require("dotenv").config();
 const amqp = require("amqplib");
 const nodemailer = require("nodemailer");
+const { DateTime } = require("luxon");
 
 const QUEUE_NAME = "warmupQueue";
 const AMQP_URL = process.env.AMQP_URL;
@@ -9,8 +10,8 @@ let CONCURRENCY = 1;
 let isRunning = false;
 
 function isWithinWindow(sendWindow) {
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const now = DateTime.now().setZone("Africa/Lagos");
+  const currentMinutes = now.hour * 60 + now.minute;
 
   const [startHour, startMin] = sendWindow.start.split(":").map(Number);
   const [endHour, endMin] = sendWindow.end.split(":").map(Number);
@@ -18,17 +19,14 @@ function isWithinWindow(sendWindow) {
   const end = endHour * 60 + endMin;
 
   if (start < end) {
-    // Normal window (e.g. 09:00 to 17:00)
     return currentMinutes >= start && currentMinutes <= end;
   } else {
-    // Crosses midnight (e.g. 22:00 to 03:00)
     return currentMinutes >= start || currentMinutes <= end;
   }
 }
 
-
 async function sendEmail(job) {
-  const { inbox, appPassword, to, subject, text,scheduledAt } = job;
+  const { inbox, appPassword, to, subject, text, scheduledAt } = job;
 
   const transporter = nodemailer.createTransport({
     service: "gmail",
@@ -57,24 +55,25 @@ async function startWorker() {
     async (msg) => {
       const job = JSON.parse(msg.content.toString());
 
-      const now = new Date();
-      const scheduledAt = new Date(job.scheduledAt);
+      const now = DateTime.now().setZone("Africa/Lagos").toJSDate();
+      const scheduledAt = DateTime.fromISO(job.scheduledAt, { zone: "Africa/Lagos" }).toJSDate();
       const isFuture = scheduledAt > now;
 
       const sendWindow = job.sendWindow || { start: "09:00", end: "17:00" };
-       const isInWindow = isWithinWindow(sendWindow);
+      const isInWindow = isWithinWindow(sendWindow);
+
       try {
-        
-if (isFuture || !isInWindow) {
-  console.log(`⏱️ Not time yet: ${job.inbox} ➡️ ${job.to}, scheduled at ${scheduledAt.toISOString()}, now is ${now.toISOString()}`);
-  return channel.nack(msg, false, true); // Requeue
-}
- let MAX_DELAY_MS = 1000 * 60 * 60 * 12; // 12 hours max delay
-const isTooOld = now - scheduledAt > MAX_DELAY_MS;
-if (isTooOld) {
-  console.log(`🗑️ Skipping stale job: scheduled at ${scheduledAt}, now is ${now}`);
-  return channel.ack(msg); // discard
-}
+        if (isFuture || !isInWindow) {
+          console.log(`⏱️ Not time yet: ${job.inbox} ➡️ ${job.to}, scheduled at ${scheduledAt.toISOString()}, now is ${now.toISOString()}`);
+          return channel.nack(msg, false, true); // Requeue
+        }
+
+        const MAX_DELAY_MS = 1000 * 60 * 60 * 12; // 12 hours max delay
+        const isTooOld = now - scheduledAt > MAX_DELAY_MS;
+        if (isTooOld) {
+          console.log(`🗑️ Skipping stale job: scheduled at ${scheduledAt}, now is ${now}`);
+          return channel.ack(msg); // discard
+        }
 
         await sendEmail(job);
         channel.ack(msg);
