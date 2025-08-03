@@ -6,7 +6,7 @@ const { DateTime } = require("luxon");
 
 const AMQP_URL = process.env.AMQP_URL;
 const QUEUE_NAME = "warmupQueue";
-const MAX_SAFE = 250;
+const MAX_SAFE = 23;
 
 let isRunning = false;
 
