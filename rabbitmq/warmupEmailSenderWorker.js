@@ -62,26 +62,19 @@ async function startWorker() {
       const isFuture = scheduledAt > now;
 
       const sendWindow = job.sendWindow || { start: "09:00", end: "17:00" };
-
+       const isInWindow = isWithinWindow(sendWindow);
       try {
-        if (!isWithinWindow(sendWindow)) {
-          // console.log("🚫 Out of send window:", JSON.stringify(sendWindow));
-          return channel.ack(msg); // discard
-        }
-
-        if (isFuture) {
-          // console.log("🕓 Now:", now.toISOString());
-          // console.log("📅 ScheduledAt:", scheduledAt.toISOString());
-          // console.log("⌛ Delta in ms:", scheduledAt.getTime() - now.getTime());
-          // console.log(`⏱️mail from ${job.inbox} to ${job.to} Not due yet: sceduled at  ${JSON.stringify(job.scheduledAt)}`);
-           return channel.nack(msg, false, true); // requeue
-        }
-//         const MAX_DELAY_MS = 1000 * 60 * 60 * 12; // 12 hours max delay
-// const isTooOld = now - scheduledAt > MAX_DELAY_MS;
-// if (isTooOld) {
-//   console.log(`🗑️ Skipping stale job: scheduled at ${scheduledAt}, now is ${now}`);
-//   return channel.ack(msg); // discard
-// }
+        
+if (isFuture || !isInWindow) {
+  console.log(`⏱️ Not time yet: ${job.inbox} ➡️ ${job.to}, scheduled at ${scheduledAt.toISOString()}, now is ${now.toISOString()}`);
+  return channel.nack(msg, false, true); // Requeue
+}
+        const MAX_DELAY_MS = 1000 * 60 * 60 * 12; // 12 hours max delay
+const isTooOld = now - scheduledAt > MAX_DELAY_MS;
+if (isTooOld) {
+  console.log(`🗑️ Skipping stale job: scheduled at ${scheduledAt}, now is ${now}`);
+  return channel.ack(msg); // discard
+}
 
         await sendEmail(job);
         channel.ack(msg);
