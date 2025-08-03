@@ -56,7 +56,9 @@ async function startWorker() {
       const job = JSON.parse(msg.content.toString());
 
       const now = DateTime.now().setZone("Africa/Lagos").toJSDate();
-      const scheduledAt = DateTime.fromISO(job.scheduledAt, { zone: "Africa/Lagos" }).toJSDate();
+      const scheduledAt = DateTime.fromISO(job.scheduledAt, { zone: "utc" }).setZone("Africa/Lagos").toJSDate();
+
+      // const scheduledAt = DateTime.fromISO(job.scheduledAt, { zone: "Africa/Lagos" }).toJSDate();
       const isFuture = scheduledAt > now;
 
       const sendWindow = job.sendWindow || { start: "09:00", end: "17:00" };
