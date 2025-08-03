@@ -69,7 +69,7 @@ if (isFuture || !isInWindow) {
   console.log(`⏱️ Not time yet: ${job.inbox} ➡️ ${job.to}, scheduled at ${scheduledAt.toISOString()}, now is ${now.toISOString()}`);
   return channel.nack(msg, false, true); // Requeue
 }
-        const MAX_DELAY_MS = 1000 * 60 * 60 * 12; // 12 hours max delay
+ let MAX_DELAY_MS = 1000 * 60 * 60 * 12; // 12 hours max delay
 const isTooOld = now - scheduledAt > MAX_DELAY_MS;
 if (isTooOld) {
   console.log(`🗑️ Skipping stale job: scheduled at ${scheduledAt}, now is ${now}`);
