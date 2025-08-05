@@ -131,27 +131,28 @@ async function scheduler() {
             continue;
           }
 
-        if (inbox.nextSendDate && now < DateTime.fromJSDate(inbox.nextSendDate).setZone("Africa/Lagos")) {
-  console.log("no inbox pass nextSendDdate");
+        // 1. Handle fresh day reset first
+const lastDay = inbox.lastSentDate?.toISOString().slice(0, 10) ?? null;
+if (lastDay !== todayKey) {
+  console.log('fresh day started, scheduling all cold warm up emails started');
+  inbox.sentToday = 0;
+  inbox.dailyLimit += inbox.dailyIncrease;
+  inbox.dailyLimit = Math.min(inbox.dailyLimit, MAX_SAFE);
+  inbox.lastSentDate = now;
+  if (inbox.replyRate < 0.70) {
+    inbox.replyRate += 0.02;
+    inbox.replyRate = Math.min(inbox.replyRate, 0.70);
+    inbox.replyRate = Math.floor(inbox.replyRate * 100) / 100;
+  }
+  dirty = true;
+}
+
+// ✅ Then check if it's too early to send again
+if (inbox.nextSendDate && now < DateTime.fromJSDate(inbox.nextSendDate).setZone("Africa/Lagos")) {
+  console.log(`⏳ Skipping ${inbox.inbox} due to future nextSendDate: ${inbox.nextSendDate}`);
   continue;
 }
 
-
-
-          const lastDay = inbox.lastSentDate?.toISOString().slice(0, 10) ?? null;
-          if (lastDay !== todayKey) {
-            console.log('fresh day started, scheduling all cold warm up emails started');
-            inbox.sentToday = 0;
-            inbox.dailyLimit += inbox.dailyIncrease;
-            inbox.dailyLimit = Math.min(inbox.dailyLimit, MAX_SAFE);
-            inbox.lastSentDate = now;
-            if (inbox.replyRate < 0.70) {
-              inbox.replyRate += 0.02;
-              inbox.replyRate = Math.min(inbox.replyRate, 0.70);
-              inbox.replyRate = Math.floor(inbox.replyRate * 100) / 100;
-            }
-            dirty = true;
-          }
 
           const toSend = inbox.dailyLimit - inbox.sentToday;
           if (toSend <= 0) {
@@ -194,7 +195,11 @@ async function scheduler() {
 
             const { to, firstName } = destObj;
             const text = getRandomWarmupContent(firstName || 'Mailing_Agent');
-
+   console.log("🕒 Scheduled Times:", times.map(t => t.toISO?.() || t));
+ if (!times[i] || typeof times[i].toISO !== 'function') {
+  console.warn(`⚠️ Invalid scheduled time at index ${i} — skipping this job`);
+  continue;
+}
             const job = {
               userId: u._id.toString(),
               warmupInboxId: inbox._id.toString(),
@@ -208,6 +213,7 @@ async function scheduler() {
               scheduledAt: times[i].toISO(),
               sendWindow: { start: inbox.sendWindow?.start, end: inbox.sendWindow?.end },
             };
+
 
             channel.sendToQueue(QUEUE_NAME,
               Buffer.from(JSON.stringify(job)),

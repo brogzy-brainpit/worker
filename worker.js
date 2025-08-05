@@ -40,12 +40,12 @@ try {
     })
    
 // Just call the consumer ONCE
-rabbitconsumer(amqp, null, null);
-startLoggerWorker()
+// rabbitconsumer(amqp, null, null);
+// startLoggerWorker()
 
 scheduler().catch(console.error);
 startWorker().catch(console.error);
-runEveryInterval();
+// runEveryInterval();
 } catch (error) {  
     console.log(`connection to mongo failed ${error}`)  
 }  
