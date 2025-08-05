@@ -157,6 +157,10 @@ if (!shouldOpen) {
           continue;
         }
 
+        if (!isWarmup) {
+  console.log("      🗨️ Skipped: not a warmup email");
+  continue;
+}
         const senderUser = await User.findOne({ "warmupInboxes.inbox": senderEmail });
         if (!senderUser) {
           console.warn(`      ⚠️ user not found for inbox ${senderEmail}`);
@@ -205,7 +209,8 @@ if (roll >= 0.4 && roll < 0.6) {
 inboxEntry.totalInboxSeen = (inboxEntry.totalInboxSeen || 0) + 1;
 inboxEntry.totalFlagged = (inboxEntry.totalFlagged || 0) + (flags.includes("\\Flagged") ? 1 : 0);
 inboxEntry.totalImportant = (inboxEntry.totalImportant || 0) + (flags.includes("\\Important") ? 1 : 0);
-
+// ✅ Save everything here — once per message
+await senderUser.save();
 if (!isWarmup) {
   console.log("      🗨️ Skipped: not a warmup email");
   continue;
@@ -255,6 +260,8 @@ if (Math.random() > replyRate) {
           });
 
           inboxEntry.totalReply = (inboxEntry.totalReply || 0) + 1;
+          // ✅ Save everything here — once per message
+await senderUser.save();
           console.log("      ✅ Reply sent & inbox stats updated");
         } catch (err) {
           console.error("      ❌ Reply failed:", err.message);
@@ -262,10 +269,9 @@ if (Math.random() > replyRate) {
         // console.log("      👁 Marked as seen");
         await connection.addFlags(msg.attributes.uid, flags);
 console.log(`      👁 Marked as seen${flags.includes("\\Flagged") ? " ⭐" : ""}${flags.includes("\\Important") ? " ❗" : ""}`);
-
-      }
 // ✅ Save everything here — once per message
 await senderUser.save();
+      }
       
       try {
         connection.end();
