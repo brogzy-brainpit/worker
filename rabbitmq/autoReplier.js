@@ -142,7 +142,7 @@ if (!isWarmup) {
 
 if (!shouldOpen) {
   // inboxEntry.totalInboxUnseen = (inboxEntry.totalInboxUnseen || 0) + 1; not gonna be helpful here, since its not from us, because we only logg emails from our system and we log how many emails wwe sent in total and everyday
-  console.log("      👀 Skipped: did not open (realistic behavior)");
+  console.log("      👀 Skipped: might be commercial email, so did not open (realistic behavior)");
   continue;
 }
 
@@ -158,7 +158,7 @@ if (!shouldOpen) {
         }
 
         if (!isWarmup) {
-  console.log("      🗨️ Skipped: not a warmup email");
+  // console.log("      🗨️ Skipped: not a warmup email");
   continue;
 }
         const senderUser = await User.findOne({ "warmupInboxes.inbox": senderEmail });

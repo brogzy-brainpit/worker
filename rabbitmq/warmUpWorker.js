@@ -131,10 +131,12 @@ async function scheduler() {
             continue;
           }
 
-         if (inbox.nextSendDate && now < DateTime.fromJSDate(inbox.nextSendDate)){
-            console.log("no inbox pass nextSendDdate");
-            continue;
-          }
+        if (inbox.nextSendDate && now < DateTime.fromJSDate(inbox.nextSendDate).setZone("Africa/Lagos")) {
+  console.log("no inbox pass nextSendDdate");
+  continue;
+}
+
+
 
           const lastDay = inbox.lastSentDate?.toISOString().slice(0, 10) ?? null;
           if (lastDay !== todayKey) {
