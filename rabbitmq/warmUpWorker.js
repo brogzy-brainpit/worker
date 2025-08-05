@@ -65,7 +65,6 @@ function getRandomMs(minMin, maxMin) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-const { DateTime, Duration } = require("luxon");
 
 function calculateScheduledTimes(start, end, count) {
   const startLuxon = DateTime.fromJSDate(start);
