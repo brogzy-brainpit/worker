@@ -20,8 +20,9 @@ async function runEveryInterval() {
   async function run() {
     await startAutoReplier();
 
-    const min = 20 * 60 * 1000; // 10 minutes
-    const max = 50 * 60 * 1000; // 50 minutes
+    const min = 45 * 60 * 1000;  // 45 minutes
+    const max = 90 * 60 * 1000;  // 90 minutes
+
     const delay = Math.floor(Math.random() * (max - min + 1)) + min;
 
     // console.log(`⏳ Next run scheduled in ${(delay / 60000).toFixed(1)} minutes`);

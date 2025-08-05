@@ -46,8 +46,12 @@ const warmupInboxSchema = new mongoose.Schema({
   default: { start: "09:00", end: "18:00" } // Business hours by default
 },
 totalInboxHit:{ type: Number, default: 0 },
+totalInboxSeen:{ type: Number, default: 0 },
 totalReply:{ type: Number, default: 0 },
 totalSpamHit:{ type: Number, default: 0 },
+totalFlagged: { type: Number, default: 0 },
+totalImportant: { type: Number, default: 0 },
+totalInboxUnseen: { type: Number, default: 0 },
 replyRate: {
     type: Number,
     default: 0.45, // 45% chance of replying to warmup emails

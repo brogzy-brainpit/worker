@@ -82,7 +82,10 @@ async function startAutoReplier() {
 
       let messages = [];
       try {
-        const sinceDate = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+        // const sinceDate = new Date(Date.now() - 2 * 60 * 60 * 1000); // last 2 hours
+        const sinceHours = 1.5 + Math.random(); // random between 1.5 to 2.5 hours
+const sinceDate = new Date(Date.now() - sinceHours * 60 * 60 * 1000);
+
         const sinceStr = sinceDate.toISOString();
         console.log(`   🔍 Searching for UNSEEN since ${sinceStr}...`);
         messages = await withTimeout(
@@ -131,11 +134,11 @@ const originalMessageId = headerPart?.body["message-id"]?.[0];
           continue;
         }
 
-        if (!rawBody.includes(firstName)) {
-          // console.log(`  ⏩ first name is ${firstName}`);
-          console.log("      ⏩ Skipped: missing WARMUP-ID in body");
-          continue;
-        }
+        if (!firstName || !rawBody.toLowerCase().includes(firstName.toLowerCase())) {
+            console.log(`      ⏩ Skipped: body does not include firstName "${firstName}"`);
+            continue;
+            }
+
 
         const match = fromHeader.match(/<([^>]+)>/);
         const senderEmail = match ? match[1] : fromHeader;
@@ -164,22 +167,46 @@ const originalMessageId = headerPart?.body["message-id"]?.[0];
         inboxEntry.totalInboxHit = (inboxEntry.totalInboxHit || 0) + 1;
 
        // 💡 Step 1: Should we open this email at all?
-       const skipRate = 0.10 + Math.random() * 0.1; // between 10%–20%
-if (Math.random() < skipRate) {
+const roll = Math.random();
+
+const skipRate = 0.10 + Math.random() * 0.1;
+if (roll < skipRate) {
+inboxEntry.totalInboxUnseen = (inboxEntry.totalInboxUnseen || 0) + 1;
   console.log("      👀 Skipped: human-like behavior (didn't even open)");
-  continue; // don't mark as seen or reply
+  continue;
 }
 
-// ✅ Open it (mark as seen)
-await connection.addFlags(msg.attributes.uid, "\\Seen");
+
+// ✅ Step 2: Mark as seen, maybe flag or important
+const flags = ["\\Seen"];
+
+if (roll >= 0.4 && roll < 0.6) {
+  flags.push("\\Flagged");
+  
+  console.log("      ⭐ Marked as starred");
+} else if (roll >= 0.6 && roll < 0.75) {
+  flags.push("\\Important");
+  console.log("      ❗ Marked as important");
+} else if (roll >= 0.9) {
+  flags.push("\\Flagged", "\\Important");
+  console.log("      ⭐❗ Marked as starred & important");
+}
+
+// await connection.addFlags(msg.attributes.uid, flags);
+
+// 🔢 Track how many were starred / important
 inboxEntry.totalInboxSeen = (inboxEntry.totalInboxSeen || 0) + 1;
-// 💡 Step 2: Should we reply?
+inboxEntry.totalFlagged = (inboxEntry.totalFlagged || 0) + (flags.includes("\\Flagged") ? 1 : 0);
+inboxEntry.totalImportant = (inboxEntry.totalImportant || 0) + (flags.includes("\\Important") ? 1 : 0);
+
+// 💡 Step 3: Should we reply?
 if (Math.random() > replyRate) {
   console.log("      🗨️ Skipped: replyRate throttle (opened but no reply)");
   continue;
 }
 
-// ✅ Proceed to reply below
+// ✅ Proceed to reply...
+
 
 
         // ✍️ Random reply text
@@ -201,7 +228,7 @@ if (Math.random() > replyRate) {
             pass: appPassword },
           });
           // after sending mail, add:
-          await sleep(500 + Math.random() * 2000); // wait 0.5s to 2.5s
+          await sleep(5000 + Math.random() * 10000); // wait 5s to 15s
           await transporter.sendMail({
             from: `"Warmup Bot" <${inbox}>`,
             to: senderEmail,
@@ -212,16 +239,17 @@ if (Math.random() > replyRate) {
           });
 
           inboxEntry.totalReply = (inboxEntry.totalReply || 0) + 1;
-          
-
-          await senderUser.save();
           console.log("      ✅ Reply sent & inbox stats updated");
         } catch (err) {
           console.error("      ❌ Reply failed:", err.message);
         }
-        console.log("      👁 Marked as seen");
-      }
+        // console.log("      👁 Marked as seen");
+        await connection.addFlags(msg.attributes.uid, flags);
+console.log(`      👁 Marked as seen${flags.includes("\\Flagged") ? " ⭐" : ""}${flags.includes("\\Important") ? " ❗" : ""}`);
 
+      }
+// ✅ Save everything here — once per message
+await senderUser.save();
       
       try {
         connection.end();

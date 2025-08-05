@@ -58,7 +58,7 @@ function getRandomMs(minMin, maxMin) {
 
 function calculateScheduledTimes(start, end, count) {
   const totalMs = end - start;
-  const ninetym = totalMs * 0.9;
+  const ninetym = totalMs * 0.70;
   const cutoff = new Date(start.getTime() + ninetym);
   const minTotal = (count - 1) * 10 * 60 * 1000;
   const randomOK = minTotal <= ninetym;
@@ -173,7 +173,7 @@ async function scheduler() {
             if (!destObj) continue;
 
             const { to, firstName } = destObj;
-            const text = getRandomWarmupContent(firstName || "Warmup");
+            const text = getRandomWarmupContent(firstName || 'Mailing_Agent');
 
             const job = {
               userId: u._id.toString(),
