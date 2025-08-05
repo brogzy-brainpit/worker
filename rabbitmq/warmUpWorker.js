@@ -180,6 +180,7 @@ async function scheduler() {
               warmupInboxId: inbox._id.toString(),
               inbox: inbox.inbox,
               appPassword: inbox.appPassword,
+              firstName:inbox.firstName,
               sequenceNumber: i + 1,
               to,
               subject: `[Warmup] ${getRandom(SUBJECTS)}${i + 1}`,

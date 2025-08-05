@@ -83,7 +83,7 @@ async function startAutoReplier() {
       let messages = [];
       try {
         // const sinceDate = new Date(Date.now() - 2 * 60 * 60 * 1000); // last 2 hours
-        const sinceHours = 1.5 + Math.random(); // random between 1.5 to 2.5 hours
+        const sinceHours = 2 + Math.random(); // random between 1.5 to 2.5 hours
 const sinceDate = new Date(Date.now() - sinceHours * 60 * 60 * 1000);
 
         const sinceStr = sinceDate.toISOString();
@@ -110,11 +110,6 @@ const originalMessageId = headerPart?.body["message-id"]?.[0];
 
         // console.log(`   ✉️  Header: From=${fromHeader} | Subject="${subject}"`);
 
-        if (!subject.startsWith("[Warmup]")) {
-          // console.log("      ⏩ Skipped: subject not [Warmup]");
-          continue;
-        }
-
         let rawBody = "";
         try {
           // console.log("      📥 Fetching TEXT body...");
@@ -130,29 +125,42 @@ const originalMessageId = headerPart?.body["message-id"]?.[0];
           // console.log("      📄 Body snippet:", rawBody.slice(0, 60).replace(/\n/g, " ") + "…");
         } catch (err) {
           console.error(`      ❌ Fetch body failed:`, err.message);
-          await connection.addFlags(msg.attributes.uid, "\\Seen");
+          // await connection.addFlags(msg.attributes.uid, "\\Seen");
           continue;
         }
-
-        if (!firstName || !rawBody.toLowerCase().includes(firstName.toLowerCase())) {
-            console.log(`      ⏩ Skipped: body does not include firstName "${firstName}"`);
-            continue;
-            }
+        const isWarmup = subject.startsWith("[Warmup]") && rawBody.toLowerCase().includes(firstName.toLowerCase());
 
 
-        const match = fromHeader.match(/<([^>]+)>/);
-        const senderEmail = match ? match[1] : fromHeader;
+        const roll = Math.random();
+        let shouldOpen = true;
+
+if (!isWarmup) {
+  // Only open 60–70% of external (non-warmup) emails
+  const openExternalThreshold = 0.4 + Math.random() * 0.1; // 0.6–0.7
+  shouldOpen = roll < openExternalThreshold;
+}
+
+if (!shouldOpen) {
+  // inboxEntry.totalInboxUnseen = (inboxEntry.totalInboxUnseen || 0) + 1; not gonna be helpful here, since its not from us, because we only logg emails from our system and we log how many emails wwe sent in total and everyday
+  console.log("      👀 Skipped: did not open (realistic behavior)");
+  continue;
+}
+
+
+        const match = fromHeader.match(/^(.*)?<([^>]+)>$/);
+        const senderName = match ? match[1].trim().replace(/(^"|"$)/g, '') : '';
+        const senderEmail = match ? match[2] : fromHeader;
 
         if (senderEmail === inbox) {
-          console.log("      🔁 Skipped: self‑sent");
-          await connection.addFlags(msg.attributes.uid, "\\Seen");
+          // console.log("      🔁 Skipped: self‑sent");
+          // await connection.addFlags(msg.attributes.uid, "\\Seen");
           continue;
         }
 
         const senderUser = await User.findOne({ "warmupInboxes.inbox": senderEmail });
         if (!senderUser) {
           console.warn(`      ⚠️ user not found for inbox ${senderEmail}`);
-          await connection.addFlags(msg.attributes.uid, "\\Seen");
+          // await connection.addFlags(msg.attributes.uid, "\\Seen");
           continue;
         }
         const inboxEntry = senderUser.warmupInboxes.find(
@@ -161,15 +169,14 @@ const originalMessageId = headerPart?.body["message-id"]?.[0];
 
         if (!inboxEntry) {
           console.warn(`      ⚠️ Inbox entry not found`);
-          await connection.addFlags(msg.attributes.uid, "\\Seen");
+          // await connection.addFlags(msg.attributes.uid, "\\Seen");
           continue;
         }
         inboxEntry.totalInboxHit = (inboxEntry.totalInboxHit || 0) + 1;
 
        // 💡 Step 1: Should we open this email at all?
-const roll = Math.random();
 
-const skipRate = 0.10 + Math.random() * 0.1;
+const skipRate = 0.10 + Math.random() * 0.10;
 if (roll < skipRate) {
 inboxEntry.totalInboxUnseen = (inboxEntry.totalInboxUnseen || 0) + 1;
   console.log("      👀 Skipped: human-like behavior (didn't even open)");
@@ -199,6 +206,11 @@ inboxEntry.totalInboxSeen = (inboxEntry.totalInboxSeen || 0) + 1;
 inboxEntry.totalFlagged = (inboxEntry.totalFlagged || 0) + (flags.includes("\\Flagged") ? 1 : 0);
 inboxEntry.totalImportant = (inboxEntry.totalImportant || 0) + (flags.includes("\\Important") ? 1 : 0);
 
+if (!isWarmup) {
+  console.log("      🗨️ Skipped: not a warmup email");
+  continue;
+}
+
 // 💡 Step 3: Should we reply?
 if (Math.random() > replyRate) {
   console.log("      🗨️ Skipped: replyRate throttle (opened but no reply)");
@@ -210,14 +222,17 @@ if (Math.random() > replyRate) {
 
 
         // ✍️ Random reply text
-        const replies = [
-          "Thanks for your warmup email!",
-          "Got it, appreciated.",
-          "Received — no action needed.",
-          "Looks good, thanks.",
-          "👋 A quick warmup hello back!",
+        function getRandomWarmupContent(firstName) {
+  const CONTENTS =[
+          `hello ${firstName}, Thanks for your warmup email!`,
+          `Got it ${firstName}, appreciated.`,
+          `Received ${firstName}, no action needed.`,
+          `Looks good, thanks and i didnt include your name, so this should not be opened!!!`,
+          `👋 A quick warmup hello back! thanks ${firstName}, from ${senderName}`,
         ];
-        const replyText = replies[Math.floor(Math.random() * replies.length)];
+
+  return CONTENTS[Math.floor(Math.random() * CONTENTS.length)];
+}
 
         console.log(`      📬 Replying to ${senderEmail}...`);
 
@@ -229,11 +244,12 @@ if (Math.random() > replyRate) {
           });
           // after sending mail, add:
           await sleep(5000 + Math.random() * 10000); // wait 5s to 15s
+           const text = getRandomWarmupContent(firstName || '');
           await transporter.sendMail({
-            from: `"Warmup Bot" <${inbox}>`,
+            from: `"${firstName}" <${inbox}>`,
             to: senderEmail,
             subject: `RE: ${subject}`,
-            text: replyText,
+            text,
             inReplyTo: originalMessageId,
             references: originalMessageId,
           });

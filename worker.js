@@ -20,7 +20,7 @@ async function runEveryInterval() {
   async function run() {
     await startAutoReplier();
 
-    const min = 45 * 60 * 1000;  // 45 minutes
+    const min = 50 * 60 * 1000;  // 50 minutes
     const max = 90 * 60 * 1000;  // 90 minutes
 
     const delay = Math.floor(Math.random() * (max - min + 1)) + min;

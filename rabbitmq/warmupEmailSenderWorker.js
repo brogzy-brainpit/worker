@@ -26,7 +26,7 @@ function isWithinWindow(sendWindow) {
 }
 
 async function sendEmail(job) {
-  const { inbox, appPassword, to, subject, text, scheduledAt } = job;
+  const { inbox, appPassword, to, subject, text, scheduledAt,firstName} = job;
 
   const transporter = nodemailer.createTransport({
     service: "gmail",
@@ -34,7 +34,7 @@ async function sendEmail(job) {
   });
 
   await transporter.sendMail({
-    from: inbox,
+    from: `"${firstName}" <${inbox}>`,
     to,
     subject,
     text,
