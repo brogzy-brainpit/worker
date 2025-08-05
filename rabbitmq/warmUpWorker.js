@@ -42,12 +42,21 @@ async function connectAmqp() {
   return channel;
 }
 
+// function parseSendWindow(ref, timeStr, fallback) {
+//   if (!timeStr) return fallback;
+//   const [h, m] = timeStr.split(":").map(Number);
+//   const d = new Date(ref);
+//   d.setHours(h, m, 0, 0);
+//   return d;
+// }
 function parseSendWindow(ref, timeStr, fallback) {
   if (!timeStr) return fallback;
+
   const [h, m] = timeStr.split(":").map(Number);
-  const d = new Date(ref);
-  d.setHours(h, m, 0, 0);
-  return d;
+  return DateTime.fromJSDate(ref)
+    .setZone("Africa/Lagos")
+    .set({ hour: h, minute: m, second: 0, millisecond: 0 })
+    .toJSDate();
 }
 
 function getRandomMs(minMin, maxMin) {
@@ -56,30 +65,38 @@ function getRandomMs(minMin, maxMin) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+const { DateTime, Duration } = require("luxon");
+
 function calculateScheduledTimes(start, end, count) {
-  const totalMs = end - start;
-  const ninetym = totalMs * 0.70;
-  const cutoff = new Date(start.getTime() + ninetym);
-  const minTotal = (count - 1) * 10 * 60 * 1000;
+  const startLuxon = DateTime.fromJSDate(start);
+  const endLuxon = DateTime.fromJSDate(end);
+  const totalMs = endLuxon.diff(startLuxon).as("milliseconds");
+  const ninetym = totalMs * 0.90;
+
+  const cutoff = startLuxon.plus({ milliseconds: ninetym });
+  const minTotal = (count - 1) * 10 * 60 * 1000; // minimum spacing total
   const randomOK = minTotal <= ninetym;
 
   const slots = [];
-  let cursor = new Date(start);
+  let cursor = startLuxon;
 
   for (let i = 0; i < count; i++) {
     if (i === count - 1) {
       cursor = cutoff;
     } else if (randomOK) {
-      cursor = new Date(cursor.getTime() + getRandomMs(10, 30));
+      const delay = getRandomMs(10, 30);
+      cursor = cursor.plus({ milliseconds: delay });
       if (cursor > cutoff) cursor = cutoff;
     } else {
       const spacing = ninetym / count;
-      cursor = new Date(start.getTime() + spacing * i);
+      cursor = startLuxon.plus({ milliseconds: spacing * i });
     }
-    slots.push(new Date(cursor));
+    slots.push(cursor);
   }
+
   return slots;
 }
+
 
 function sleep(ms) {
   return new Promise((res) => setTimeout(res, ms));
@@ -97,8 +114,9 @@ async function scheduler() {
 
   async function runCycle() {
     try {
-      const now = DateTime.now().setZone("Africa/Lagos").toJSDate();
-      const todayKey = new Date(now).toISOString().slice(0, 10);
+      const now = DateTime.now().setZone("Africa/Lagos");
+      const todayKey = now.toISODate(); // returns "YYYY-MM-DD"
+
 
       const users = await User.find({ "warmupInboxes.status": "active" });
 
@@ -114,7 +132,7 @@ async function scheduler() {
             continue;
           }
 
-          if (inbox.nextSendDate && now < new Date(inbox.nextSendDate)) {
+         if (inbox.nextSendDate && now < DateTime.fromJSDate(inbox.nextSendDate)){
             console.log("no inbox pass nextSendDdate");
             continue;
           }
@@ -136,22 +154,23 @@ async function scheduler() {
 
           const toSend = inbox.dailyLimit - inbox.sentToday;
           if (toSend <= 0) {
-            const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-            inbox.nextSendDate = new Date(tomorrow.setHours(0, 0, 0, 0));
+           const tomorrow = now.plus({ days: 1 }).startOf('day');
+           inbox.nextSendDate = tomorrow.toJSDate(); // Already start of day
             dirty = true;
             continue;
           }
 
           console.log(`⏩ Scheduling ${toSend} for ${inbox.inbox}`);
 
-          const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-          inbox.nextSendDate = new Date(tomorrow.setHours(0, 0, 0, 0));
+          const tomorrow = now.plus({ days: 1 }).startOf('day');
+          inbox.nextSendDate = tomorrow.toJSDate();
           inbox.sentToday += toSend;
           inbox.totalEmailSent += toSend;
           dirty = true;
 
-          const ws = parseSendWindow(now, inbox.sendWindow?.start, new Date(now.setHours(9, 0, 0, 0)));
-          const we = parseSendWindow(now, inbox.sendWindow?.end, new Date(now.setHours(17, 0, 0, 0)));
+         const ws = parseSendWindow(now, inbox.sendWindow?.start, now.set({ hour: 9, minute: 0, second: 0, millisecond: 0 }).toJSDate());
+         const we = parseSendWindow(now, inbox.sendWindow?.end, now.set({ hour: 17, minute: 0, second: 0, millisecond: 0 }).toJSDate());
+
 
           const times = calculateScheduledTimes(ws, we, toSend);
 
@@ -185,7 +204,7 @@ async function scheduler() {
               to,
               subject: `[Warmup] ${getRandom(SUBJECTS)}${i + 1}`,
               text,
-              scheduledAt: times[i].toISOString(),
+              scheduledAt: times[i].toISO(),
               sendWindow: { start: inbox.sendWindow?.start, end: inbox.sendWindow?.end },
             };
 

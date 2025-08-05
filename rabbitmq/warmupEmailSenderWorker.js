@@ -11,6 +11,7 @@ let isRunning = false;
 
 function isWithinWindow(sendWindow) {
   const now = DateTime.now().setZone("Africa/Lagos");
+  
   const currentMinutes = now.hour * 60 + now.minute;
 
   const [startHour, startMin] = sendWindow.start.split(":").map(Number);
@@ -55,8 +56,10 @@ async function startWorker() {
     async (msg) => {
       const job = JSON.parse(msg.content.toString());
 
-      const now = DateTime.now().setZone("Africa/Lagos").toJSDate();
-      const scheduledAt = DateTime.fromISO(job.scheduledAt, { zone: "utc" }).setZone("Africa/Lagos").toJSDate();
+      // const now = DateTime.now().setZone("Africa/Lagos").toJSDate();
+      // const scheduledAt = DateTime.fromISO(job.scheduledAt, { zone: "utc" }).setZone("Africa/Lagos").toJSDate();
+const scheduledAt = DateTime.fromISO(job.scheduledAt, { zone: "utc" }).setZone("Africa/Lagos");
+const now = DateTime.now().setZone("Africa/Lagos");
 
       // const scheduledAt = DateTime.fromISO(job.scheduledAt, { zone: "Africa/Lagos" }).toJSDate();
       const isFuture = scheduledAt > now;
@@ -66,7 +69,7 @@ async function startWorker() {
 
       try {
         if (isFuture || !isInWindow) {
-          console.log(`⏱️ Not time yet: ${job.inbox} ➡️ ${job.to}, scheduled at ${scheduledAt.toISOString()}, now is ${now.toISOString()}`);
+          console.log(`⏱️ Not time yet: ${job.inbox} ➡️ ${job.to}, scheduled at ${scheduledAt.toISO()}, now is ${now.toISO()}`);
           return channel.nack(msg, false, true); // Requeue
         }
 
