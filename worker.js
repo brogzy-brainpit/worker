@@ -43,8 +43,8 @@ try {
 // rabbitconsumer(amqp, null, null);
 // startLoggerWorker()
 
-scheduler().catch(console.error);
-startWorker().catch(console.error);
+// scheduler().catch(console.error);
+// startWorker().catch(console.error);
 // runEveryInterval();
 } catch (error) {  
     console.log(`connection to mongo failed ${error}`)  

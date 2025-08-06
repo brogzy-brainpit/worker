@@ -42,23 +42,13 @@ async function connectAmqp() {
   return channel;
 }
 
-// function parseSendWindow(ref, timeStr, fallback) {
-//   if (!timeStr) return fallback;
-//   const [h, m] = timeStr.split(":").map(Number);
-//   const d = new Date(ref);
-//   d.setHours(h, m, 0, 0);
-//   return d;
-// }
 function parseSendWindow(ref, timeStr, fallback) {
-  if (!timeStr) return fallback instanceof DateTime ? fallback : DateTime.fromJSDate(fallback).setZone("Africa/Lagos");
-
+  if (!timeStr) return fallback;
   const [h, m] = timeStr.split(":").map(Number);
-  return DateTime.fromJSDate(ref)
-    .setZone("Africa/Lagos")
-    .set({ hour: h, minute: m, second: 0, millisecond: 0 });
+  const d = new Date(ref);
+  d.setHours(h, m, 0, 0);
+  return d;
 }
-
-
 
 function getRandomMs(minMin, maxMin) {
   const min = minMin * 60 * 1000;
@@ -66,44 +56,30 @@ function getRandomMs(minMin, maxMin) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-
 function calculateScheduledTimes(start, end, count) {
-  if (!start.isValid || !end.isValid) {
-    console.error("❌ Invalid start or end time passed to calculateScheduledTimes", { start, end });
-    return [];
-  }
-
-  const startLuxon = start; // no fromJSDate
-  const endLuxon = end;     // no fromJSDate
-
-  const totalMs = endLuxon.diff(startLuxon).as("milliseconds");
-  const ninetym = totalMs * 0.90;
-
-  const cutoff = startLuxon.plus({ milliseconds: ninetym });
-  const minTotal = (count - 1) * 10 * 60 * 1000; // minimum spacing total
+  const totalMs = end - start;
+  const ninetym = totalMs * 0.9;
+  const cutoff = new Date(start.getTime() + ninetym);
+  const minTotal = (count - 1) * 10 * 60 * 1000;
   const randomOK = minTotal <= ninetym;
 
   const slots = [];
-  let cursor = startLuxon;
+  let cursor = new Date(start);
 
   for (let i = 0; i < count; i++) {
     if (i === count - 1) {
       cursor = cutoff;
     } else if (randomOK) {
-      const delay = getRandomMs(10, 30);
-      cursor = cursor.plus({ milliseconds: delay });
+      cursor = new Date(cursor.getTime() + getRandomMs(10, 30));
       if (cursor > cutoff) cursor = cutoff;
     } else {
       const spacing = ninetym / count;
-      cursor = startLuxon.plus({ milliseconds: spacing * i });
+      cursor = new Date(start.getTime() + spacing * i);
     }
-    slots.push(cursor);
+    slots.push(new Date(cursor));
   }
-
   return slots;
 }
-
-
 
 function sleep(ms) {
   return new Promise((res) => setTimeout(res, ms));
@@ -121,9 +97,8 @@ async function scheduler() {
 
   async function runCycle() {
     try {
-      const now = DateTime.now().setZone("Africa/Lagos");
-      const todayKey = now.toISODate(); // returns "YYYY-MM-DD"
-
+      const now = DateTime.now().setZone("Africa/Lagos").toJSDate();
+      const todayKey = new Date(now).toISOString().slice(0, 10);
 
       const users = await User.find({ "warmupInboxes.status": "active" });
 
@@ -139,52 +114,45 @@ async function scheduler() {
             continue;
           }
 
-        // 1. Handle fresh day reset first
-const lastDay = inbox.lastSentDate?.toISOString().slice(0, 10) ?? null;
-if (lastDay !== todayKey) {
-  console.log('fresh day started, scheduling all cold warm up emails started');
-  inbox.sentToday = 0;
-  inbox.dailyLimit += inbox.dailyIncrease;
-  inbox.dailyLimit = Math.min(inbox.dailyLimit, MAX_SAFE);
-  inbox.lastSentDate = now;
-  if (inbox.replyRate < 0.70) {
-    inbox.replyRate += 0.02;
-    inbox.replyRate = Math.min(inbox.replyRate, 0.70);
-    inbox.replyRate = Math.floor(inbox.replyRate * 100) / 100;
-  }
-  dirty = true;
-}
+          if (inbox.nextSendDate && now < new Date(inbox.nextSendDate)) {
+            console.log("no inbox pass nextSendDdate");
+            continue;
+          }
 
-// ✅ Then check if it's too early to send again
-if (inbox.nextSendDate && now < DateTime.fromJSDate(inbox.nextSendDate).setZone("Africa/Lagos")) {
-  console.log(`⏳ Skipping ${inbox.inbox} due to future nextSendDate: ${inbox.nextSendDate}`);
-  continue;
-}
-
+          const lastDay = inbox.lastSentDate?.toISOString().slice(0, 10) ?? null;
+          if (lastDay !== todayKey) {
+            console.log('fresh day started, scheduling all cold warm up emails started');
+            inbox.sentToday = 0;
+            inbox.dailyLimit += inbox.dailyIncrease;
+            inbox.dailyLimit = Math.min(inbox.dailyLimit, MAX_SAFE);
+            inbox.lastSentDate = now;
+            if (inbox.replyRate < 0.70) {
+              inbox.replyRate += 0.02;
+              inbox.replyRate = Math.min(inbox.replyRate, 0.70);
+              inbox.replyRate = Math.floor(inbox.replyRate * 100) / 100;
+            }
+            dirty = true;
+          }
 
           const toSend = inbox.dailyLimit - inbox.sentToday;
           if (toSend <= 0) {
-           const tomorrow = now.plus({ days: 1 }).startOf('day');
-           inbox.nextSendDate = tomorrow.toJSDate(); // Already start of day
+            const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+            inbox.nextSendDate = new Date(tomorrow.setHours(0, 0, 0, 0));
             dirty = true;
             continue;
           }
 
           console.log(`⏩ Scheduling ${toSend} for ${inbox.inbox}`);
 
-          const tomorrow = now.plus({ days: 1 }).startOf('day');
-          inbox.nextSendDate = tomorrow.toJSDate();
+          const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+          inbox.nextSendDate = new Date(tomorrow.setHours(0, 0, 0, 0));
           inbox.sentToday += toSend;
           inbox.totalEmailSent += toSend;
           dirty = true;
 
-  const ws = parseSendWindow(now.toJSDate(), inbox.sendWindow?.start, new Date());
-const we = parseSendWindow(now.toJSDate(), inbox.sendWindow?.end, new Date());
+          const ws = parseSendWindow(now, inbox.sendWindow?.start, new Date(now.setHours(9, 0, 0, 0)));
+          const we = parseSendWindow(now, inbox.sendWindow?.end, new Date(now.setHours(17, 0, 0, 0)));
 
-console.log("✅ Scheduling window:", {
-  ws: ws.toISO?.() || ws,
-  we: we.toISO?.() || we
-});
           const times = calculateScheduledTimes(ws, we, toSend);
 
           const same = u.warmupInboxes
@@ -206,25 +174,19 @@ console.log("✅ Scheduling window:", {
 
             const { to, firstName } = destObj;
             const text = getRandomWarmupContent(firstName);
-   console.log("🕒 Scheduled Times:", times.map(t => t.toISO?.() || t));
- if (!times[i] || typeof times[i].toISO !== 'function') {
-  console.warn(`⚠️ Invalid scheduled time at index ${i} — skipping this job`);
-  continue;
-}
+
             const job = {
               userId: u._id.toString(),
               warmupInboxId: inbox._id.toString(),
               inbox: inbox.inbox,
               appPassword: inbox.appPassword,
-              firstName:inbox.firstName,
               sequenceNumber: i + 1,
               to,
               subject: `[Warmup] ${getRandom(SUBJECTS)}${i + 1}`,
               text,
-              scheduledAt: times[i].toISO(),
+              scheduledAt: times[i].toISOString(),
               sendWindow: { start: inbox.sendWindow?.start, end: inbox.sendWindow?.end },
             };
-
 
             channel.sendToQueue(QUEUE_NAME,
               Buffer.from(JSON.stringify(job)),
