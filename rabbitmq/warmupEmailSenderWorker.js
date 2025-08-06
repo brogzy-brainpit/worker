@@ -26,8 +26,8 @@ function isWithinWindow(sendWindow) {
   }
 }
 
-async function sendEmail(job) {
-  const { inbox, appPassword, to, subject, text, scheduledAt,firstName} = job;
+   async function sendEmail(job) {
+  const { inbox, appPassword, to, subject, text,firstName} = job;
 
   const transporter = nodemailer.createTransport({
     service: "gmail",
@@ -40,9 +40,14 @@ async function sendEmail(job) {
     subject,
     text,
   });
-
-  console.log(`✅ Email sent from ${inbox} ➡️ ${to}, scheduled time is at ${JSON.stringify(scheduledAt)}`);
+const scheduledAt = DateTime.fromISO(job.scheduledAt, { zone: "utc" }).setZone("Africa/Lagos");
+const now = DateTime.now().setZone("Africa/Lagos");
+  console.log(`✅ Email sent from ${inbox} ➡️ ${to},  scheduled at ${scheduledAt.toISO()}, now is ${now.toISO()}`);
 }
+function sleep(ms) {
+  return new Promise((res) => setTimeout(res, ms));
+}
+
 
 async function startWorker() {
   const conn = await amqp.connect(AMQP_URL);
@@ -68,10 +73,21 @@ const now = DateTime.now().setZone("Africa/Lagos");
       const isInWindow = isWithinWindow(sendWindow);
 
       try {
-        if (isFuture || !isInWindow) {
-          console.log(`⏱️ Not time yet: ${job.inbox} ➡️ ${job.to}, scheduled at ${scheduledAt.toISO()}, now is ${now.toISO()}`);
-          return channel.nack(msg, false, true); // Requeue
-        }
+        // if (isFuture || !isInWindow) {
+        //   console.log(`⏱️ Not time yet: ${job.inbox} ➡️ ${job.to}, scheduled at ${scheduledAt.toISO()}, now is ${now.toISO()}`);
+        //   return channel.nack(msg, false, true); // Requeue
+        // }
+      if (isFuture || !isInWindow) {
+  console.log(`⏱️ Not time yet: ${job.inbox} ➡️ ${job.to}, scheduled at ${scheduledAt.toISO()}, now is ${now.toISO()}`);
+  channel.ack(msg);
+  setTimeout(() => {
+    channel.sendToQueue(QUEUE_NAME, Buffer.from(JSON.stringify(job)), {
+      persistent: true,
+    });
+  }, 5000); // retry after 5 seconds
+  return;
+}
+
 
         const MAX_DELAY_MS = 1000 * 60 * 60 * 12; // 12 hours max delay
         const isTooOld = now - scheduledAt > MAX_DELAY_MS;
@@ -81,6 +97,7 @@ const now = DateTime.now().setZone("Africa/Lagos");
         }
 
         await sendEmail(job);
+         await sleep(5000 + Math.random() * 5000);
         channel.ack(msg);
       } catch (err) {
         console.error("❌ Error sending email:", err.message);

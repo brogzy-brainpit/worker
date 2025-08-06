@@ -43,7 +43,7 @@ const warmupInboxSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
  sendWindow: {
   type: Object,
-  default: { start: "09:00", end: "19:00" } // Business hours by default
+  default: { start: "09:00", end: "18:00" } // Business hours by default
 },
 totalInboxHit:{ type: Number, default: 0 },
 totalInboxSeen:{ type: Number, default: 0 },

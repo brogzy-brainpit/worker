@@ -23,8 +23,8 @@ function getRandomWarmupContent(firstName) {
     `This is just a warmup message to keep things active! X-WARMUP-ID: ${firstName}`,
     `Hey ${firstName}! This is a warmup email. X-WARMUP-ID: No action needed.`,
     `You can ignore this warmup email, ${firstName}. X-WARMUP-ID: It's for deliverability.`,
-    `Keeping the inbox alive with X-WARMUP-ID: this warmup!`,
-    `Warming up your inbox... X-WARMUP-ID: all systems go!`
+    ` ${firstName}, Keeping the inbox alive with X-WARMUP-ID: this warmup!`,
+    `Warming up your inbox...  ${firstName} X-WARMUP-ID: all systems go!`
   ];
 
   return CONTENTS[Math.floor(Math.random() * CONTENTS.length)];
@@ -181,36 +181,33 @@ if (inbox.nextSendDate && now < DateTime.fromJSDate(inbox.nextSendDate).setZone(
   const ws = parseSendWindow(now.toJSDate(), inbox.sendWindow?.start, new Date());
 const we = parseSendWindow(now.toJSDate(), inbox.sendWindow?.end, new Date());
 
-console.log("✅ Scheduling window:", {
-  ws: ws.toISO?.() || ws,
-  we: we.toISO?.() || we
-});
+// console.log("✅ Scheduling window:", {
+//   ws: ws.toISO?.() || ws,
+//   we: we.toISO?.() || we
+// });
           const times = calculateScheduledTimes(ws, we, toSend);
 
-          const same = u.warmupInboxes
-            .filter(i => i.status === "active" && i.inbox !== inbox.inbox)
-            .map(i => ({ to: i.inbox, firstName: i.firstName || 'Mailing_Agent' }));
+          // const same = u.warmupInboxes
+          //   .filter(i => i.status === "active" && i.inbox !== inbox.inbox)
+          //   .map(i => ({ to: i.inbox, firstName: i.firstName }));
 
           const pool = users.flatMap(usr =>
             usr.warmupInboxes
-              .filter(i => i.status === "active")
-              .map(i => ({ to: i.inbox, firstName: i.firstName || 'Mailing_Agent' }))
+              .filter(i => i.status === "active" && i.inbox !== inbox.inbox)
+              .map(i => ({ to: i.inbox, firstName: i.firstName}))
           );
 
           for (let i = 0; i < toSend; i++) {
-            let destObj = same.length
-              ? same[Math.floor(Math.random() * same.length)]
-              : pool[Math.floor(Math.random() * pool.length)];
+            // let destObj = same.length
+            //   ? same[Math.floor(Math.random() * same.length)]
+            //   : pool[Math.floor(Math.random() * pool.length)];
+              let destObj = pool[Math.floor(Math.random() * pool.length)];
 
             if (!destObj) continue;
 
             const { to, firstName } = destObj;
             const text = getRandomWarmupContent(firstName);
-   console.log("🕒 Scheduled Times:", times.map(t => t.toISO?.() || t));
- if (!times[i] || typeof times[i].toISO !== 'function') {
-  console.warn(`⚠️ Invalid scheduled time at index ${i} — skipping this job`);
-  continue;
-}
+
             const job = {
               userId: u._id.toString(),
               warmupInboxId: inbox._id.toString(),
