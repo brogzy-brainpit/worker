@@ -26,9 +26,11 @@ const getNextTransport = () => {
     sender: user,
   };
 };
-
+  function sleep(ms) {
+  return new Promise((res) => setTimeout(res, ms));
+}
 // 📨 Main Consumer
-const rabbitconsumer = (amqp, res, list) => {
+const campaignConsumer = (amqp, res, list) => {
   amqplib.connect(amqp.amqp, (err, connection) => {
     if (err) {
       console.error("❌ AMQP Connection Error:", err.stack);
@@ -114,8 +116,9 @@ const rabbitconsumer = (amqp, res, list) => {
         }
 
         console.log(`📤 Sending email to ${message.to}...`);
-
-        transport.sendMail(mail_config, (err, info) => {
+  
+ sleep(3000 + Math.random() * 2000).then(()=>{
+  transport.sendMail(mail_config, (err, info) => {
           if (err) {
             console.error(`❌ Send Error to ${message.to}:`, err.message);
             return channel.ack(data);
@@ -148,9 +151,14 @@ const rabbitconsumer = (amqp, res, list) => {
           channel.ack(data);
           scheduleSummary(sender, transport);
         });
+ }).catch(err => {
+  console.error("❌ Sleep error:", err);
+  channel.ack(data);
+});;
+        
       });
     });
   });
 };
 
-module.exports = { rabbitconsumer };
+module.exports = { campaignConsumer };

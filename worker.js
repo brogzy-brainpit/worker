@@ -1,10 +1,10 @@
 // consumerWorker.js
 require('dotenv').config(); // If you need to load .env
 const { startAutoReplier } = require('./rabbitmq/autoReplier.js');
-const { rabbitconsumer } = require("./rabbitmq/consumer");
+const { campaignConsumer } = require("./rabbitmq/consumer");
 const { startLoggerWorker } = require('./rabbitmq/logWorker.js');
-const { startWorker } = require('./rabbitmq/warmupEmailSenderWorker');
-const {scheduler } = require('./rabbitmq/warmUpWorker');
+const {warmupEmailScheduler } = require('./rabbitmq/warmUpWorker');
+const {warmupEmailConsumer } = require('./rabbitmq/warmupEmailSenderWorker');
 const {connectDb}=require("./db/connectDb.js");
 require("dotenv").config();
 
@@ -14,7 +14,7 @@ const amqp = {
 };
 
 
-async function runEveryInterval() {
+async function autoReplier() {
   console.log("🕓 Warmup auto-reply worker started...");
 
   async function run() {
@@ -33,21 +33,21 @@ async function runEveryInterval() {
   run(); // start the first run
 }
 
-const startServer=async()=>{
+const startWorker=async()=>{
 try {
     await connectDb(process.env.MONGODB_URI).then(()=>{
         console.log("connected successfully...");
     })
    
 // Just call the consumer ONCE
-rabbitconsumer(amqp, null, null);
-startLoggerWorker()
+campaignConsumer(amqp, null, null);
+startLoggerWorker().catch(console.error)
 
-scheduler().catch(console.error);
-startWorker().catch(console.error);
-runEveryInterval();
+warmupEmailScheduler().catch(console.error);
+warmupEmailConsumer().catch(console.error);
+autoReplier();
 } catch (error) {  
     console.log(`connection to mongo failed ${error}`)  
 }  
 } 
-startServer(); 
+startWorker(); 

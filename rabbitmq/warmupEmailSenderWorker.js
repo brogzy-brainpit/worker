@@ -49,7 +49,7 @@ function sleep(ms) {
 }
 
 
-async function startWorker() {
+async function warmupEmailConsumer() {
   const conn = await amqp.connect(AMQP_URL);
   const channel = await conn.createChannel();
   await channel.assertQueue(QUEUE_NAME, { durable: true });
@@ -108,4 +108,4 @@ const now = DateTime.now().setZone("Africa/Lagos");
   );
 }
 
-module.exports = { startWorker };
+module.exports = { warmupEmailConsumer };
