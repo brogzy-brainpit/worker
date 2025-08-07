@@ -68,7 +68,7 @@ const campaignConsumer = (amqp, res, list) => {
               sentTo.length = 0;
             });
           }
-        }, 5000);
+        }, 80000);
       };
 
       channel.consume(amqp.queue, data => {
@@ -117,7 +117,7 @@ const campaignConsumer = (amqp, res, list) => {
 
         console.log(`📤 Sending email to ${message.to}...`);
   
- sleep(40000 + Math.random() * 20000).then(()=>{
+ sleep(30000 + Math.random() * 30000).then(()=>{
   transport.sendMail(mail_config, (err, info) => {
           if (err) {
             console.error(`❌ Send Error to ${message.to}:`, err.message);
@@ -126,11 +126,7 @@ const campaignConsumer = (amqp, res, list) => {
         
           // console.log(`✅ Senthhhhhhhhhhhv vvvvvv to: ${message.to}`);
           console.log(` Sent to: ${message.userId}`);
-          const log = {
-              userId: message.userId,
-              email: message.to
-            };
-            console.log("📤 Publishing to sentLogs");
+          
 
           sentTo.push(message.to);
 
