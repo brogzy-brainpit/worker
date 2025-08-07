@@ -117,7 +117,7 @@ const campaignConsumer = (amqp, res, list) => {
 
         console.log(`📤 Sending email to ${message.to}...`);
   
- sleep(3000 + Math.random() * 2000).then(()=>{
+ sleep(5000 + Math.random() * 2000).then(()=>{
   transport.sendMail(mail_config, (err, info) => {
           if (err) {
             console.error(`❌ Send Error to ${message.to}:`, err.message);
