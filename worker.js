@@ -41,10 +41,10 @@ try {
    
 // Just call the consumer ONCE
 campaignConsumer(amqp, null, null);
-startLoggerWorker().catch(console.error)
+startLoggerWorker()
 
-warmupEmailScheduler().catch(console.error);
-warmupEmailConsumer().catch(console.error);
+warmupEmailScheduler()
+warmupEmailConsumer()
 autoReplier();
 } catch (error) {  
     console.log(`connection to mongo failed ${error}`)  
