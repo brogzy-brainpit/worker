@@ -112,7 +112,7 @@ const campaignConsumer = (amqp, res, list) => {
         };
 
         if (message.html && message.html.trim() && message.sendHTML === 'true') {
-          mail_config.html = message.html;
+          mail_config.html = message.html
         }
 
         console.log(`📤 Sending email to ${message.to}...`);
