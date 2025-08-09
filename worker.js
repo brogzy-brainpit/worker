@@ -3,7 +3,7 @@ require('dotenv').config(); // If you need to load .env
 const { startAutoReplier } = require('./rabbitmq/autoReplier.js');
 const { campaignConsumer } = require("./rabbitmq/consumer");
 const { startLoggerWorker } = require('./rabbitmq/logWorker.js');
-const {warmupEmailScheduler } = require('./rabbitmq/warmUpWorker');
+const {scheduler} = require('./rabbitmq/warmUpWorker');
 const {warmupEmailConsumer } = require('./rabbitmq/warmupEmailSenderWorker');
 const {connectDb}=require("./db/connectDb.js");
 require("dotenv").config();
@@ -43,7 +43,7 @@ try {
 campaignConsumer(amqp, null, null);
 startLoggerWorker()
 
-warmupEmailScheduler()
+scheduler()
 warmupEmailConsumer()
 autoReplier();
 } catch (error) {  
