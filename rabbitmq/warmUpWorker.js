@@ -24,7 +24,7 @@ const SUBJECTS =[
   `Harnessing Google Ads in Our Quest for Knowledge`,
   `Enhancing Our Journey with Effective Email Services`,
   `Soaring High with Our Email Campaign Achievements!`, 
-  `Quick Follow-Up: Elevate Your Customer Growth`
+  `Quick Follow-Up: Elevate Your Customer Growth`,
   `Votre avis sur nos dernières améliorations de service`,
   `A Web of Creativity Awaits Us`,
   `Let's dive into E-commerce Analytics and Metrics`,
