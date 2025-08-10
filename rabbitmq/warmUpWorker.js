@@ -3,32 +3,47 @@ const amqp = require("amqplib");
 const mongoose = require("mongoose");
 const User = require("../model/userAuth");
 const { DateTime } = require("luxon");
+const getRandomWarmupContent= require("../content");
+
 
 const AMQP_URL = process.env.AMQP_URL;
 const QUEUE_NAME = "warmupQueue";
-const MAX_SAFE = 23;
+const MAX_SAFE = 6;
 
 let isRunning = false;
 
 const SUBJECTS = [
-  `first Email #`,
-  `Hey there 👋`,
-  `Quick Check-In`,
-  `Test Email - Please Ignore`,
-  `Just Warming Things Up`
+  `Inquiry About Upcoming E-commerce Project`,
+  `Exciting Opportunity at Quantum Bites Tech`,
+  `Potential Challenges with Our Recent Facebook Ad Campaigns`,
+  `Inquiry on Branding and Logo Design Philosophy`,
+  `Exploring Advanced Email Services for Enhanced Lead Generation`,
+  `Outstanding Invoice and Banking Update`,
+  `Boosting Your Online Presence with Our Tailored SEO Services`,
+  `Proposal for a Website Development Trial`,
+  `Harnessing Google Ads in Our Quest for Knowledge`,
+  `Enhancing Our Journey with Effective Email Services`,
+  `Soaring High with Our Email Campaign Success!`,
+  `Quick Follow-Up: Elevate Your Customer Acquisition`,
+  `Votre avis sur nos dernières améliorations de service`,
+  `A Web of Creativity Awaits Us`,
+  `Let's dive into E-commerce Analytics and Metrics`,
+  `Maximizing Customer Acquisition through Strategic Email Services`,
+`Innovations in Our Marketing Tools: Seeking Your Esteemed Feedback`,
+`Urgent Help Needed on the Web Development Front`,
+`Diving Deep into Marketing Tools Evaluation!`,
+`Request for SEO Services Action Plan`,
+`Elevating Our Brand Essence Through Strategic Logo Design`,
+`Request for SEO Services Action Plan`,
+`Welcome Aboard, Bobby Donev! Here's How I Can Help`,
+`Leveraging Digital Marketing for Health Education Success`,
+`Let's dive into Quality Assurance and Testing`,
+`Quick Question`,
+`Let's dive into Construction Tutorials and Testing`,
+`Request for Email Design Services Action Plan`,
 ];
 
-function getRandomWarmupContent(firstName) {
-  const CONTENTS = [
-    `This is just a warmup message to keep things active! X-WARMUP-ID: ${firstName}`,
-    `Hey ${firstName}! This is a warmup email. X-WARMUP-ID: No action needed.`,
-    `You can ignore this warmup email, ${firstName}. X-WARMUP-ID: It's for deliverability.`,
-    ` ${firstName}, Keeping the inbox alive with X-WARMUP-ID: this warmup!`,
-    `Warming up your inbox...  ${firstName} X-WARMUP-ID: all systems go!`
-  ];
 
-  return CONTENTS[Math.floor(Math.random() * CONTENTS.length)];
-}
 
 function getRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -206,7 +221,7 @@ const we = parseSendWindow(now.toJSDate(), inbox.sendWindow?.end, new Date());
             if (!destObj) continue;
 
             const { to, firstName } = destObj;
-            const text = getRandomWarmupContent(firstName);
+            const text = getRandomWarmupContent(firstName,inbox.inbox);
 
             const job = {
               userId: u._id.toString(),
