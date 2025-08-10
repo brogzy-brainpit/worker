@@ -12,36 +12,36 @@ const MAX_SAFE = 6;
 
 let isRunning = false;
 
-const SUBJECTS = [
+const SUBJECTS =[
   `Inquiry About Upcoming E-commerce Project`,
-  `Exciting Opportunity at Quantum Bites Tech`,
+  `Interesting Possibility at Quantum Bites Tech`, 
   `Potential Challenges with Our Recent Facebook Ad Campaigns`,
   `Inquiry on Branding and Logo Design Philosophy`,
   `Exploring Advanced Email Services for Enhanced Lead Generation`,
-  `Outstanding Invoice and Banking Update`,
-  `Boosting Your Online Presence with Our Tailored SEO Services`,
-  `Proposal for a Website Development Trial`,
+  `Outstanding Payment and Banking Update`,
+  `Recent House listing in Miami by SPA Company`,
+  `Proposal for a Website Development Preview`, 
   `Harnessing Google Ads in Our Quest for Knowledge`,
   `Enhancing Our Journey with Effective Email Services`,
-  `Soaring High with Our Email Campaign Success!`,
-  `Quick Follow-Up: Elevate Your Customer Acquisition`,
+  `Soaring High with Our Email Campaign Achievements!`, 
+  `Quick Follow-Up: Elevate Your Customer Growth`
   `Votre avis sur nos dernières améliorations de service`,
   `A Web of Creativity Awaits Us`,
   `Let's dive into E-commerce Analytics and Metrics`,
-  `Maximizing Customer Acquisition through Strategic Email Services`,
-`Innovations in Our Marketing Tools: Seeking Your Esteemed Feedback`,
-`Urgent Help Needed on the Web Development Front`,
-`Diving Deep into Marketing Tools Evaluation!`,
-`Request for SEO Services Action Plan`,
-`Elevating Our Brand Essence Through Strategic Logo Design`,
-`Request for SEO Services Action Plan`,
-`Welcome Aboard, Bobby Donev! Here's How I Can Help`,
-`Leveraging Digital Marketing for Health Education Success`,
-`Let's dive into Quality Assurance and Testing`,
-`Quick Question`,
-`Let's dive into Construction Tutorials and Testing`,
-`Request for Email Design Services Action Plan`,
-];
+  `Maximizing Customer Growth through Strategic Email Services`, 
+  `Innovations in Our Marketing Tools: Seeking Your Valued Feedback`, 
+  `Immediate Assistance Needed on the Web Development Front`,
+  `Diving Deep into Promotions Tools Evaluation!`,
+  `Plan of Effort for SEO Services`, 
+  `Elevating Our Brand Essence Through Strategic Logo Design`,
+  `Plan of Effort  for Web Design Services`, 
+  `Welcome Aboard, Bobby Donev! who is your guarantor `, 
+  `Leveraging Online Promotions for Health Education Success`, 
+  `Let's dive into Quality Assurance and Testing`,
+  `Quick Question`,
+  `Let's dive into Construction Tutorials and Testing`,
+  `Plan of effort for teaching Email deliverability` 
+]
 
 
 
